@@ -308,7 +308,7 @@ export const register: Register = on => {
         </Box>
       )
     } else if (kind === 'stacked') {
-      // The cache becomes a third stacked block, the same shape as 7D and 5H.
+      // The cache becomes a third stacked block, the same shape as CTX and the cost.
       rows = (
         <Box key="row" flexDirection="row" paddingX={1}>
           {usage}
