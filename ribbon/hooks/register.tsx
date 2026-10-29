@@ -27,6 +27,9 @@ const HIGH_AT = 80
 const RED_AT = 95
 /** The app's code font advance, which turns a drawing's pixels into cells. */
 const CELL_PX = 12
+/** What an icon button takes once the app pads it, and what the width estimate keeps spare. */
+const BUTTON_CELLS = 3
+const SLACK_CELLS = 2
 /** How often the band redraws, so the countdown and the warm-to-cold flip stay current. */
 const TICK_MS = 30_000
 /** How long Clear and Reload stay armed waiting for their confirming press. */
@@ -232,11 +235,11 @@ export const register: Register = on => {
     // The wide row in cells: about one per character, a drawing's pixels over CELL_PX, and the margins between blocks.
     const widthOf = () => {
       const pct = (p: number) => ` ${Math.round(p)}%`.length
-      let w = 2
+      let w = 2 + SLACK_CELLS
       if (m.percent !== null) w += 4 + CELLS + pct(m.percent) + (m.percent >= HIGH_AT ? 5 : 0) + (tail ? 3 + tail.length : 0) + 3
       if (m.week !== null) w += 3 + CELLS + pct(m.week) + 3
       if (m.usd !== null) w += usd(m.usd).length + 3
-      if (e.surface !== 'terminal') w += loaded ? 8 + 3 : 5 + 3
+      if (e.surface !== 'terminal') w += (loaded ? 3 : 2) * (BUTTON_CELLS + 1) + 3
       if (view && !open) {
         w += Svg ? (robo ? ROBO_SIZE / CELL_PX + 1 : 0) + chip.w / CELL_PX : WORD[mode].length + 2
         w += summaryText().length + 2

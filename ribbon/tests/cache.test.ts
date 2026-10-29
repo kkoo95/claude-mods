@@ -140,7 +140,7 @@ test('a compaction drops the cache, a skipped one keeps it', async ($, on) => {
   await band.unmount()
 })
 
-test('a crowded wide row drops "left", then Robo, before the band stacks', async ($, on) => {
+test('a crowded wide row drops "left", then Robo, then the token count, before the band stacks', async ($, on) => {
   mock.store(on)
   mock.clock(on, { now: NOW })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
@@ -167,9 +167,10 @@ test('a crowded wide row drops "left", then Robo, before the band stacks', async
     return shown
   }
 
-  expect(await at(86)).toEqual({ left: true, robo: true, inlineFill: true })
-  expect(await at(85)).toEqual({ left: false, robo: true, inlineFill: true })
-  expect(await at(80)).toEqual({ left: false, robo: false, inlineFill: true })
+  expect(await at(91)).toEqual({ left: true, robo: true, inlineFill: true })
+  expect(await at(90)).toEqual({ left: false, robo: true, inlineFill: true })
+  expect(await at(85)).toEqual({ left: false, robo: false, inlineFill: true })
+  expect(await at(82)).toEqual({ left: false, robo: false, inlineFill: false })
   // Under the wide breakpoint the band stacks, with room for every part again.
   expect(await at(77)).toEqual({ left: true, robo: true, inlineFill: false })
 })
