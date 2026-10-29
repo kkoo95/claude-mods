@@ -7,10 +7,12 @@ Jordan's Claude Code mods, published as the `jordan-mods` plugin marketplace.
 A slim band above the prompt, on one row:
 
 ```
-CTX ●●··· 24% · 245k/1M   $3.40   ⌫ ⇊ ↻   WARM 42m left   Show
+CTX ●○○○○ 24% · 245k/1M   7D ●●◐○○ 47%   $3.40   ⌫ ⇊ ↻   WARM 42m left   Show
 ```
 
-- **CTX** — how full the context window is: a dot bar, the percent, and tokens over the window size.
+- **CTX** — how full the context window is: five rounds filled by half steps, the percent, and tokens over the window size. Bold HIGH from 80%.
+- **7D** — how much of the 7-day rate limit is used, as the same five rounds. Hidden off a subscription.
+- Both gauges shift colour with the fill: green, yellow, orange, then red from 95%.
   A bold **HIGH** shows from 80%, when compaction gets close.
 - **Cost** — what the session has cost so far, as `/cost` totals it (API prices; not what a subscription bills).
 - **⌫ Clear** — runs `/clear`. The first press arms it (✓), a second press within 5 seconds runs it.

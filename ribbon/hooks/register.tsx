@@ -4,15 +4,16 @@ import type { EngineInterface, Register } from 'claude-code'
 import type { Armed, CacheFacts, Fold, Meter } from '../types'
 import type { SessionUsage } from 'claude-code'
 import {
-  BG, EMPTY, HUE, INK, MUTED, ORANGE, ROBO_SIZE, TEXT, TTL_MIN, TTL_MS, WORD, YELLOW,
+  BG, EMPTY, HUE, INK, MUTED, ROBO_SIZE, TEXT, TTL_MIN, TTL_MS, WORD, YELLOW,
   bandPx, cardSvg, chipSvg, costOf, familyOf, fmtIdle, kindOf, mineModel, roboSvg, tok, usd,
 } from './cache-art'
 import type { CacheView } from './cache-art'
 
 // A band above the prompt in a warm dark look: card surface, cream text,
-// dot-matrix bars. Shows how full the context window is (CTX, orange; a bold
-// HIGH from 80%), what the session has cost so far (yellow), and icon buttons
-// for /clear, /compact and reloading the loaded project after a clear.
+// five-round gauges that run green to red. Shows how full the context window is
+// (CTX; a bold HIGH from 80%), how much of the 7-day rate limit is used (7D),
+// what the session has cost so far (yellow), and icon buttons for /clear,
+// /compact and reloading the loaded project after a clear.
 //
 // After the first reply it also shows the prompt cache: WARM (red, Robo bobbing)
 // for an hour after the last request, then COLD (blue, Robo frozen) with what the
@@ -22,13 +23,14 @@ import type { CacheView } from './cache-art'
 
 const CELLS = 5
 const HIGH_AT = 80
-const TIGHT_CELLS = 3
+/** The fill at which a gauge turns fully red. */
+const RED_AT = 95
 /** How often the band redraws, so the countdown and the warm-to-cold flip stay current. */
 const TICK_MS = 30_000
 /** How long Clear and Reload stay armed waiting for their confirming press. */
 const ARM_MS = 5_000
 
-const EMPTY_METER: Meter = { percent: null, tokens: 0, window: 0, usd: null }
+const EMPTY_METER: Meter = { percent: null, tokens: 0, window: 0, usd: null, week: null }
 const meter = atom({ plugin: 'ribbon', key: 'meter' } as const, EMPTY_METER)
 const cache = atom({ plugin: 'ribbon', key: 'cache' } as const, null as CacheFacts | null)
 const fold = atom({ plugin: 'ribbon', key: 'fold' } as const, null as Fold | null)
@@ -40,16 +42,33 @@ const PROJECT_SKILL = /^(project-memory:)?(load|resume|create)-project$/
 const projectOf = (name: string, args: string | undefined): string | null =>
   PROJECT_SKILL.test(name) ? (args ?? '').trim().split(/\s+/)[0] || null : null
 
-const meterOf = (u: Pick<SessionUsage, 'context' | 'cost'>): Meter => ({
+const meterOf = (u: Pick<SessionUsage, 'context' | 'cost' | 'rateLimits'>): Meter => ({
   percent: typeof u.context.percent === 'number' ? u.context.percent : null,
   tokens: u.context.tokens ?? 0,
   window: u.context.window,
   usd: u.cost ? u.cost.usd : null,
+  week: u.rateLimits.find(r => r.kind === 'seven_day')?.percentUsed ?? null,
 })
 
-const dots = (pct: number, cells: number): { on: string; off: string } => {
-  const n = Math.max(0, Math.min(cells, Math.round((pct / 100) * cells)))
-  return { on: '●'.repeat(n), off: '·'.repeat(cells - n) }
+/** Five rounds filled by half steps: ● full, ◐ half, ○ still to come. */
+export const dots = (pct: number): { on: string; off: string } => {
+  const halves = Math.max(0, Math.min(CELLS * 2, Math.round((pct / 100) * CELLS * 2)))
+  const full = Math.floor(halves / 2)
+  const half = halves % 2
+  return { on: '●'.repeat(full) + '◐'.repeat(half), off: '○'.repeat(CELLS - full - half) }
+}
+
+/** Green at 0%, then yellow and orange, red from RED_AT. */
+export const heat = (pct: number): string => {
+  const hue = 120 * (1 - Math.max(0, Math.min(pct, RED_AT)) / RED_AT)
+  const sat = 0.85
+  const light = 0.55
+  const channel = (n: number) => {
+    const k = (n + hue / 30) % 12
+    const v = light - sat * Math.min(light, 1 - light) * Math.max(-1, Math.min(k - 3, 9 - k, 1))
+    return Math.round(v * 255).toString(16).padStart(2, '0')
+  }
+  return `#${channel(0)}${channel(8)}${channel(4)}`
 }
 
 /** What the cache drawings read, or null until a request and its context size are known. */
@@ -98,7 +117,7 @@ export const register: Register = on => {
   })
 
   on('session.measure', async ($, e, next) => {
-    if (e.changed.includes('context') || e.changed.includes('cost')) {
+    if (e.changed.includes('context') || e.changed.includes('cost') || e.changed.includes('rateLimits')) {
       await update($, meter, () => meterOf(e))
     }
     if (e.changed.includes('context') && e.context.tokens && e.context.tokens > 0) {
@@ -181,7 +200,7 @@ export const register: Register = on => {
     const now = await $.clock.now()
     const view = viewOf(await read($, cache), now)
 
-    if (m.percent === null && m.usd === null && !view) {
+    if (m.percent === null && m.week === null && m.usd === null && !view) {
       return (
         <Box backgroundColor={BG} paddingX={1}>
           <Text color={MUTED}>waiting for the first reply</Text>
@@ -192,37 +211,39 @@ export const register: Register = on => {
     const columns = e.props.bodyColumns ?? e.viewport?.columns ?? 100
     const kind = kindOf(columns)
     const isWide = kind === 'wide'
-    const cells = kind === 'tight' ? TIGHT_CELLS : CELLS
 
-    // Wide: CTX and the cost on one row. Narrow: each is a block of lines so nothing wraps or clips.
-    const fill = m.window > 0 ? `${tok(m.tokens)}/${tok(m.window)}` : ''
-    const ctx = m.percent === null ? null : (() => {
-      const pct = m.percent
-      const d = dots(pct, cells)
+    // Wide: each gauge and the cost on one row. Narrow: each is a block of lines so nothing wraps or clips.
+    const gauge = (key: string, label: string, pct: number, tail: string) => {
+      const d = dots(pct)
+      const color = heat(pct)
+      const shown = Math.round(pct)
       const head = [
-        <Text key="n" color={MUTED} bold>CTX </Text>,
-        <Text key="on" color={ORANGE}>{d.on}</Text>,
+        <Text key="n" color={MUTED} bold>{label} </Text>,
+        <Text key="on" color={color}>{d.on}</Text>,
         <Text key="off" color={EMPTY}>{d.off}</Text>,
       ]
-      const high = pct >= HIGH_AT ? <Text key="high" color={TEXT} bold> HIGH</Text> : null
+      const high = key === 'ctx' && pct >= HIGH_AT ? <Text key="high" color={TEXT} bold> HIGH</Text> : null
       return isWide ? (
-        <Box key="ctx" flexDirection="row" flexShrink={0} marginRight={3}>
+        <Box key={key} flexDirection="row" flexShrink={0} marginRight={3}>
           {head}
-          <Text color={ORANGE} bold> {pct}%</Text>
+          <Text color={color} bold> {shown}%</Text>
           {high}
-          {fill ? <Text color={MUTED}> · {fill}</Text> : null}
+          {tail ? <Text color={MUTED}> · {tail}</Text> : null}
         </Box>
       ) : (
-        <Box key="ctx" flexDirection="column" flexShrink={0} marginRight={3}>
+        <Box key={key} flexDirection="column" flexShrink={0} marginRight={3}>
           <Box flexDirection="row">{head}</Box>
           <Box flexDirection="row">
-            <Text color={ORANGE} bold>{pct}%</Text>
+            <Text color={color} bold>{shown}%</Text>
             {high}
           </Box>
-          {fill ? <Text color={MUTED}>{fill}</Text> : null}
+          {tail ? <Text color={MUTED}>{tail}</Text> : null}
         </Box>
       )
-    })()
+    }
+    const fill = m.window > 0 ? `${tok(m.tokens)}/${tok(m.window)}` : ''
+    const ctx = m.percent === null ? null : gauge('ctx', 'CTX', m.percent, fill)
+    const week = m.week === null ? null : gauge('week', '7D', m.week, '')
     const cost = m.usd === null ? null : (
       <Box key="cost" flexDirection={isWide ? 'row' : 'column'} flexShrink={0} marginRight={3}>
         <Text color={YELLOW} bold>{usd(m.usd)}</Text>
@@ -259,8 +280,8 @@ export const register: Register = on => {
         ) : null}
       </Box>
     )
-    const usage = ctx || cost
-      ? [ctx, cost, actions]
+    const usage = ctx || week || cost
+      ? [ctx, week, cost, actions]
       : [<Box key="wait" flexShrink={0} marginRight={3}><Text color={MUTED}>waiting for the first reply</Text></Box>]
 
     // Before the first reply there is no cache to show: today's band, as it was.

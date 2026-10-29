@@ -125,7 +125,7 @@ test('a compaction drops the cache, a skipped one keeps it', async ($, on) => {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.usage', () => ({ value: { startedAt: 0, context: CONTEXT, rateLimits: [], cost: { usd: 1.23 } } }))
   on('classic.SessionStart', () => ({}))
-  const MSG = [{ role: 'user', text: 'summary', toolUses: [] }]
+  const MSG = [{ role: 'user' as const, text: 'summary', toolUses: [] }]
   on('session.compact', () => (skip ? { skip: 'nothing to compact' } : { messages: MSG }))
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
   await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: WARM_IDLE, context_tokens: 770000, model: 'claude-opus-5-5' })

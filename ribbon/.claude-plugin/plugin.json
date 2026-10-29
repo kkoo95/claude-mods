@@ -1,7 +1,7 @@
 {
   "name": "ribbon",
   "version": "0.1.0",
-  "description": "A slim band above the prompt: context fill, session cost, the prompt cache, and buttons to clear, compact or reload the loaded project.",
+  "description": "A slim band above the prompt: context fill, 7-day rate-limit usage, session cost, the prompt cache, and buttons to clear, compact or reload the loaded project.",
   "author": {
     "name": "Jordan",
     "url": "https://github.com/kkoo95"

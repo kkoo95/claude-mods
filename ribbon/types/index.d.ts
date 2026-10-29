@@ -1,5 +1,8 @@
-/** The session's usage: context fill (0 to 100, null before a reading), its tokens and window, and the cost so far. */
-export type Meter = { percent: number | null; tokens: number; window: number; usd: number | null }
+/**
+ * The session's usage: context fill (0 to 100, null before a reading), its tokens and window,
+ * the cost so far, and how much of the 7-day rate limit is used (null off a subscription).
+ */
+export type Meter = { percent: number | null; tokens: number; window: number; usd: number | null; week: number | null }
 
 /**
  * The prompt cache as the band last saw it: when the main thread last sent a

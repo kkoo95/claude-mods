@@ -16,7 +16,7 @@ const PROPS = {
   view: {},
 } as const
 
-test('the band shows the context fill and the session cost, and no rate-limit window', async ($, on) => {
+test('the band shows the context fill and the session cost, and no 5-hour window', async ($, on) => {
   mock.store(on)
   mock.clock(on, { now: Date.parse('2098-12-31T22:00:00Z') })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
