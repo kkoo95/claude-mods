@@ -29,6 +29,8 @@ const RED_AT = 95
 const CELL_PX = 12
 /** What an icon button takes once the app pads it, and what the width estimate keeps spare. */
 const BUTTON_CELLS = 3
+/** The cells between two blocks of the band. */
+const GAP = 2
 const SLACK_CELLS = 2
 /** How often the band redraws, so the countdown and the warm-to-cold flip stay current. */
 const TICK_MS = 30_000
@@ -236,10 +238,10 @@ export const register: Register = on => {
     const widthOf = () => {
       const pct = (p: number) => ` ${Math.round(p)}%`.length
       let w = 2 + SLACK_CELLS
-      if (m.percent !== null) w += 4 + CELLS + pct(m.percent) + (m.percent >= HIGH_AT ? 5 : 0) + (tail ? 3 + tail.length : 0) + 3
-      if (m.week !== null) w += 3 + CELLS + pct(m.week) + 3
-      if (m.usd !== null) w += usd(m.usd).length + 3
-      if (e.surface !== 'terminal') w += (loaded ? 3 : 2) * (BUTTON_CELLS + 1) + 3
+      if (m.percent !== null) w += 4 + CELLS + pct(m.percent) + (m.percent >= HIGH_AT ? 5 : 0) + (tail ? 3 + tail.length : 0) + GAP
+      if (m.week !== null) w += 3 + CELLS + pct(m.week) + GAP
+      if (m.usd !== null) w += usd(m.usd).length + GAP
+      if (e.surface !== 'terminal') w += (loaded ? 3 : 2) * (BUTTON_CELLS + 1) + GAP
       if (view && !open) {
         w += Svg ? (robo ? ROBO_SIZE / CELL_PX + 1 : 0) + chip.w / CELL_PX : WORD[mode].length + 2
         w += summaryText().length + 2
@@ -271,14 +273,14 @@ export const register: Register = on => {
       ]
       const high = key === 'ctx' && pct >= HIGH_AT ? <Text key="high" color={TEXT} bold> HIGH</Text> : null
       return isWide ? (
-        <Box key={key} flexDirection="row" flexShrink={0} marginRight={3}>
+        <Box key={key} flexDirection="row" flexShrink={0} marginRight={GAP}>
           {head}
           <Text color={color} bold> {shown}%</Text>
           {high}
           {tail ? <Text color={MUTED}> · {tail}</Text> : null}
         </Box>
       ) : (
-        <Box key={key} flexDirection="column" flexShrink={0} marginRight={3}>
+        <Box key={key} flexDirection="column" flexShrink={0} marginRight={GAP}>
           <Box flexDirection="row">{head}</Box>
           <Box flexDirection="row">
             <Text color={color} bold>{shown}%</Text>
@@ -291,7 +293,7 @@ export const register: Register = on => {
     const ctx = m.percent === null ? null : gauge('ctx', 'CTX', m.percent, tail)
     const week = m.week === null ? null : gauge('week', '7D', m.week, '')
     const cost = m.usd === null ? null : (
-      <Box key="cost" flexDirection={isWide ? 'row' : 'column'} flexShrink={0} marginRight={3}>
+      <Box key="cost" flexDirection={isWide ? 'row' : 'column'} flexShrink={0} marginRight={GAP}>
         <Text color={YELLOW} bold>{usd(m.usd)}</Text>
       </Box>
     )
@@ -313,7 +315,7 @@ export const register: Register = on => {
     }
     // The terminal types the commands itself.
     const actions = e.surface === 'terminal' ? null : (
-      <Box key="actions" flexDirection="row" flexShrink={0} marginRight={3} alignItems="flex-start">
+      <Box key="actions" flexDirection="row" flexShrink={0} marginRight={GAP} alignItems="flex-start">
         <Button key="ctx-clear" plain dimColor={armedNow !== 'clear'} label={armedNow === 'clear' ? '✓' : '⌫'}
           onPress={confirm('clear', () => $.command.run({ command: 'clear' }))} />
         <Text> </Text>
@@ -327,7 +329,7 @@ export const register: Register = on => {
     )
     const usage = ctx || week || cost
       ? [ctx, week, cost, actions]
-      : [<Box key="wait" flexShrink={0} marginRight={3}><Text color={MUTED}>waiting for the first reply</Text></Box>]
+      : [<Box key="wait" flexShrink={0} marginRight={GAP}><Text color={MUTED}>waiting for the first reply</Text></Box>]
 
     // Before the first reply there is no cache to show: today's band, as it was.
     if (!view) {

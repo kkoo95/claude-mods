@@ -167,10 +167,10 @@ test('a crowded wide row drops "left", then Robo, then the token count, before t
     return shown
   }
 
-  expect(await at(91)).toEqual({ left: true, robo: true, inlineFill: true })
-  expect(await at(90)).toEqual({ left: false, robo: true, inlineFill: true })
-  expect(await at(85)).toEqual({ left: false, robo: false, inlineFill: true })
-  expect(await at(82)).toEqual({ left: false, robo: false, inlineFill: false })
+  expect(await at(87)).toEqual({ left: true, robo: true, inlineFill: true })
+  expect(await at(86)).toEqual({ left: false, robo: true, inlineFill: true })
+  expect(await at(81)).toEqual({ left: false, robo: false, inlineFill: true })
+  expect(await at(78)).toEqual({ left: false, robo: false, inlineFill: false })
   // Under the wide breakpoint the band stacks, with room for every part again.
   expect(await at(77)).toEqual({ left: true, robo: true, inlineFill: false })
 })
