@@ -36,7 +36,6 @@ Pick the user scope, then start a new session. To develop it, add a clone as a f
 
 Run the tests with `claude plugin test ribbon`.
 
-## Credits
+## License
 
-ribbon started as a fork of [robonuggets/ribbon](https://github.com/robonuggets/ribbon) (MIT, see `ribbon/LICENSE`).
-Its embedded Outfit font is under the SIL Open Font License 1.1.
+MIT, see `ribbon/LICENSE`. The embedded Outfit font is under the SIL Open Font License 1.1.
