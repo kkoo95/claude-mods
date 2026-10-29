@@ -83,6 +83,13 @@ const measure = async ($: EngineInterface, lastAt: number | null, model: string 
   }))
 }
 
+/** Drops what the band knew of the cache, for a conversation that starts over. */
+const forget = async ($: EngineInterface): Promise<void> => {
+  await update($, cache, () => null)
+  await update($, fold, () => null)
+  await update($, armed, () => null)
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await pull($)
@@ -101,14 +108,23 @@ export const register: Register = on => {
     return next(e)
   })
 
+  // A /clear ends the conversation without a session.start for the fresh one.
+  on('session.end', async ($, e, next) => {
+    const r = await next(e)
+    if (e.reason === 'clear') await forget($)
+    return r
+  })
+
+  on('session.compact', async ($, e, next) => {
+    const r = await next(e)
+    if (!e.agentId && !('skip' in r)) await forget($)
+    return r
+  })
+
   // A resumed or forked session knows how long it was away and how big it is.
   on('classic.SessionStart', async ($, e, next) => {
     const r = await next(e)
-    if (e.source === 'clear' || e.source === 'compact') {
-      await update($, cache, () => null)
-      await update($, fold, () => null)
-      await update($, armed, () => null)
-    } else if ((e.source === 'resume' || e.source === 'fork') && typeof e.seconds_since_last_response === 'number') {
+    if ((e.source === 'resume' || e.source === 'fork') && typeof e.seconds_since_last_response === 'number') {
       const now = await $.clock.now()
       const lastAt = now - e.seconds_since_last_response * 1000
       const window = (await $.session.usage()).context.window

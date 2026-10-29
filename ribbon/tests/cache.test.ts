@@ -107,12 +107,35 @@ test('a cleared session drops the cache until the next reply', async ($, on) => 
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.usage', () => ({ value: { startedAt: 0, context: CONTEXT, rateLimits: [], cost: { usd: 1.23 } } }))
   on('classic.SessionStart', () => ({}))
+  on('session.end', ($, e) => ({ sessionId: e.sessionId }))
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
   await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: COLD_IDLE, context_tokens: 770000, model: 'claude-opus-5-5' })
-  await $.classic.SessionStart({ source: 'clear' })
+  await $.session.end({ reason: 'clear', sessionId: 's1', resume: { id: 's1' } })
 
   const band = await $.ui.mount({ plugin: 'ribbon', surface: 'desktop', component: 'AbovePrompt', props: PROPS })
   expect(await band.findAll({ type: 'Svg' })).toEqual([])
   expect(await band.find({ text: ' 77%' })).toBeDefined()
+  await band.unmount()
+})
+
+test('a compaction drops the cache, a skipped one keeps it', async ($, on) => {
+  mock.store(on)
+  mock.clock(on, { now: NOW })
+  let skip = true
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: CONTEXT, rateLimits: [], cost: { usd: 1.23 } } }))
+  on('classic.SessionStart', () => ({}))
+  const MSG = [{ role: 'user', text: 'summary', toolUses: [] }]
+  on('session.compact', () => (skip ? { skip: 'nothing to compact' } : { messages: MSG }))
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
+  await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: WARM_IDLE, context_tokens: 770000, model: 'claude-opus-5-5' })
+
+  const band = await $.ui.mount({ plugin: 'ribbon', surface: 'desktop', component: 'AbovePrompt', props: PROPS })
+  await $.session.compact({ trigger: 'manual', messages: MSG } as never)
+  expect((await band.findAll({ type: 'Svg' })).length).toBeGreaterThan(0)
+
+  skip = false
+  await $.session.compact({ trigger: 'manual', messages: MSG } as never)
+  expect(await band.findAll({ type: 'Svg' })).toEqual([])
   await band.unmount()
 })
