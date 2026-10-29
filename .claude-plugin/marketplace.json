@@ -1,0 +1,11 @@
+{
+  "name": "jordan-mods",
+  "owner": { "name": "Jordan" },
+  "plugins": [
+    {
+      "name": "ribbon",
+      "source": "./ribbon",
+      "description": "A slim band above the prompt: context fill, session cost, the prompt cache, and buttons to clear, compact or reload the loaded project."
+    }
+  ]
+}

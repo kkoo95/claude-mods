@@ -1,0 +1,11 @@
+{
+  "name": "ribbon",
+  "version": "0.1.0",
+  "description": "A slim band above the prompt: context fill, session cost, the prompt cache, and buttons to clear, compact or reload the loaded project.",
+  "author": { "name": "Jay E", "url": "https://robonuggets.com" },
+  "homepage": "https://github.com/robonuggets/ribbon",
+  "repository": "https://github.com/robonuggets/ribbon",
+  "license": "MIT",
+  "keywords": ["usage", "rate-limit", "prompt-cache", "cost", "status", "mod", "claude-code"],
+  "types": "./types/index.d.ts"
+}
