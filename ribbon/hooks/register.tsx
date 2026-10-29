@@ -25,6 +25,8 @@ const CELLS = 5
 const HIGH_AT = 80
 /** The fill at which a gauge turns fully red. */
 const RED_AT = 95
+/** The app's code font advance, which turns a drawing's pixels into cells. */
+const CELL_PX = 12
 /** How often the band redraws, so the countdown and the warm-to-cold flip stay current. */
 const TICK_MS = 30_000
 /** How long Clear and Reload stay armed waiting for their confirming press. */
@@ -209,7 +211,49 @@ export const register: Register = on => {
     }
 
     const columns = e.props.bodyColumns ?? e.viewport?.columns ?? 100
-    const kind = kindOf(columns)
+    const fill = m.window > 0 ? `${tok(m.tokens)}/${tok(m.window)}` : ''
+    const loaded = await read($, project)
+    const mode = view ? view.mode : 'warm'
+    const stored = await read($, fold)
+    // Folding needs the card, and the card is a drawing: the terminal stays folded.
+    const open = view !== null && Svg !== null && (stored && stored.mode === mode ? stored.open : mode === 'cold')
+    const chip = chipSvg(mode)
+    const mine = view ? mineModel(view) : null
+
+    let kind = kindOf(columns)
+    let tail = fill
+    let left = true
+    let robo = Svg !== null
+    const summaryText = () => {
+      if (!view) return ''
+      if (mode === 'warm') return ` ${Math.max(0, TTL_MIN - view.idleMin)}m${left ? ' left' : ''}`
+      return ` ${view.idle}${mine ? ` · ${usd(costOf(mine, mode, view.tokens))}` : ''}`
+    }
+    // The wide row in cells: about one per character, a drawing's pixels over CELL_PX, and the margins between blocks.
+    const widthOf = () => {
+      const pct = (p: number) => ` ${Math.round(p)}%`.length
+      let w = 2
+      if (m.percent !== null) w += 4 + CELLS + pct(m.percent) + (m.percent >= HIGH_AT ? 5 : 0) + (tail ? 3 + tail.length : 0) + 3
+      if (m.week !== null) w += 3 + CELLS + pct(m.week) + 3
+      if (m.usd !== null) w += usd(m.usd).length + 3
+      if (e.surface !== 'terminal') w += loaded ? 8 + 3 : 5 + 3
+      if (view && !open) {
+        w += Svg ? (robo ? ROBO_SIZE / CELL_PX + 1 : 0) + chip.w / CELL_PX : WORD[mode].length + 2
+        w += summaryText().length + 2
+      }
+      if (view && Svg) w += 6
+      return w
+    }
+    // Too wide a row drops "left", then the mascot, then the token count, and stacks only past that.
+    if (kind === 'wide' && widthOf() > columns) left = false
+    if (kind === 'wide' && widthOf() > columns) robo = false
+    if (kind === 'wide' && widthOf() > columns) tail = ''
+    if (kind === 'wide' && widthOf() > columns) {
+      kind = 'stacked'
+      tail = fill
+      left = true
+      robo = Svg !== null
+    }
     const isWide = kind === 'wide'
 
     // Wide: each gauge and the cost on one row. Narrow: each is a block of lines so nothing wraps or clips.
@@ -241,8 +285,7 @@ export const register: Register = on => {
         </Box>
       )
     }
-    const fill = m.window > 0 ? `${tok(m.tokens)}/${tok(m.window)}` : ''
-    const ctx = m.percent === null ? null : gauge('ctx', 'CTX', m.percent, fill)
+    const ctx = m.percent === null ? null : gauge('ctx', 'CTX', m.percent, tail)
     const week = m.week === null ? null : gauge('week', '7D', m.week, '')
     const cost = m.usd === null ? null : (
       <Box key="cost" flexDirection={isWide ? 'row' : 'column'} flexShrink={0} marginRight={3}>
@@ -261,7 +304,6 @@ export const register: Register = on => {
       $.clock.after(ARM_MS, () => void update($, armed, a => (a === which ? null : a)))
     }
     const armedNow = await read($, armed)
-    const loaded = await read($, project)
     const reload = async () => {
       await $.command.run({ command: 'clear' })
       await $.command.run({ command: 'project-memory:resume-project', args: loaded ?? '' })
@@ -293,24 +335,16 @@ export const register: Register = on => {
       )
     }
 
-    const mode = view.mode
     const cold = mode === 'cold'
     const hue = HUE[mode]
-    const mine = mineModel(view)
-    const stored = await read($, fold)
-    // Folding needs the card, and the card is a drawing: the terminal stays folded.
-    const open = Svg !== null && (stored && stored.mode === mode ? stored.open : cold)
     const toggle = () =>
       update($, fold, f => ({ mode, open: !(f && f.mode === mode ? f.open : mode === 'cold') }))
 
     const badge = Svg
       ? [
-          <Svg key="robo" source={roboSvg(mode)} alt={cold ? 'Robo, frozen' : 'Robo, bobbing'} width={ROBO_SIZE} height={ROBO_SIZE} isInteractive />,
-          <Text key="gap"> </Text>,
-          (() => {
-            const c = chipSvg(mode)
-            return <Svg key="chip" source={c.source} alt={WORD[mode]} width={c.w} height={c.h} />
-          })(),
+          robo ? <Svg key="robo" source={roboSvg(mode)} alt={cold ? 'Robo, frozen' : 'Robo, bobbing'} width={ROBO_SIZE} height={ROBO_SIZE} isInteractive /> : null,
+          robo ? <Text key="gap"> </Text> : null,
+          <Svg key="chip" source={chip.source} alt={WORD[mode]} width={chip.w} height={chip.h} />,
         ]
       : [<Text key="chip" backgroundColor={hue} color={INK} bold>{` ${WORD[mode]} `}</Text>]
 
@@ -320,7 +354,7 @@ export const register: Register = on => {
           mine ? <Text key="dot" color={MUTED}> · </Text> : null,
           mine ? <Text key="cost" color={TEXT} bold>{usd(costOf(mine, mode, view.tokens))}</Text> : null,
         ]
-      : [<Text key="left" color={hue} bold>{` ${Math.max(0, TTL_MIN - view.idleMin)}m left`}</Text>]
+      : [<Text key="left" color={hue} bold>{summaryText()}</Text>]
 
     const button = Svg ? (
       <Box key="fold" flexShrink={0} alignItems="flex-start">

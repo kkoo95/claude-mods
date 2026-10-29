@@ -139,3 +139,37 @@ test('a compaction drops the cache, a skipped one keeps it', async ($, on) => {
   expect(await band.findAll({ type: 'Svg' })).toEqual([])
   await band.unmount()
 })
+
+test('a crowded wide row drops "left", then Robo, before the band stacks', async ($, on) => {
+  mock.store(on)
+  mock.clock(on, { now: NOW })
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({
+    value: {
+      startedAt: 0,
+      context: { window: 1000000, tokens: 171000, percent: 17 },
+      rateLimits: [{ kind: 'seven_day', percentUsed: 11 }],
+      cost: { usd: 10.85 },
+    },
+  }))
+  on('classic.SessionStart', () => ({}))
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
+  await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: WARM_IDLE, context_tokens: 171000, model: 'claude-opus-5-5' })
+
+  const at = async (bodyColumns: number) => {
+    const band = await $.ui.mount({ plugin: 'ribbon', surface: 'desktop', component: 'AbovePrompt', props: { ...PROPS, bodyColumns } })
+    const shown = {
+      left: (await band.find({ text: 'm left' })) !== undefined,
+      robo: (await band.findAll({ type: 'Svg' })).some(s => s.props.alt === 'Robo, bobbing'),
+      inlineFill: (await band.find({ text: ' · 171k/1M' })) !== undefined,
+    }
+    await band.unmount()
+    return shown
+  }
+
+  expect(await at(86)).toEqual({ left: true, robo: true, inlineFill: true })
+  expect(await at(85)).toEqual({ left: false, robo: true, inlineFill: true })
+  expect(await at(80)).toEqual({ left: false, robo: false, inlineFill: true })
+  // Under the wide breakpoint the band stacks, with room for every part again.
+  expect(await at(77)).toEqual({ left: true, robo: true, inlineFill: false })
+})
