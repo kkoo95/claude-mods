@@ -15,3 +15,5 @@ claude plugin install ribbon@jordan-mods --marketplace kkoo95/claude-mods
 ```
 
 Pick the user scope, then start a new session.
+
+ribbon is adapted from [robonuggets/ribbon](https://github.com/robonuggets/ribbon) (MIT, see `ribbon/LICENSE`); its embedded Outfit font is under the SIL Open Font License 1.1.
