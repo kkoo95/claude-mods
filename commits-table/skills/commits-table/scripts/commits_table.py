@@ -4,6 +4,8 @@
 Subcommands:
   commits <owner/repo> <pr>                  JSON list of the PR's commits, oldest first
   splice <body-file> <section-file>          print the body with its `## Commits` section replaced or inserted
+  rewrite <body-file> <new-file>             print <new-file> followed by the attribution footer of <body-file>
+  keep <body-file>                           JSON of what a rewrite must carry over: footer, checklists, references
 
 Only REST calls through `gh api` are used, so it also works where GitHub GraphQL is blocked.
 """
@@ -68,6 +70,32 @@ def splice(body, section):
     return body.rstrip('\n') + '\n\n' + section
 
 
+def footer(body):
+    match = FOOTER.search(body)
+    return body[match.start():].strip('\n') + '\n' if match else ''
+
+
+def rewrite(body, new):
+    new = new.strip('\n') + '\n'
+    foot = footer(body)
+    return new + ('\n' + foot if foot and foot.strip() not in new else '')
+
+
+REFERENCE = re.compile(r'(?i)\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?)\s+[\w./-]*#\d+|\bsc-\d+\b|https?://\S*(?:shortcut\.com|atlassian\.net|linear\.app)\S*')
+CHECKLIST = re.compile(r'^\s*[-*] \[[ xX]\] .+$', re.M)
+
+
+def keep(body):
+    head = body[:FOOTER.search(body).start()] if FOOTER.search(body) else body
+    return {
+        'footer': footer(body),
+        'checklists': CHECKLIST.findall(head),
+        'references': sorted(set(REFERENCE.findall(head))),
+        'headings': re.findall(r'^#{1,3} .+$', head, re.M),
+        'words': len(head.split()),
+    }
+
+
 def main(argv):
     if len(argv) == 3 and argv[0] == 'commits':
         json.dump(commits(argv[1], argv[2]), sys.stdout, indent=1, ensure_ascii=False)
@@ -76,6 +104,12 @@ def main(argv):
         body = open(argv[1], encoding='utf-8').read()
         section = open(argv[2], encoding='utf-8').read()
         sys.stdout.write(splice(body, section))
+    elif len(argv) == 3 and argv[0] == 'rewrite':
+        body = open(argv[1], encoding='utf-8').read()
+        sys.stdout.write(rewrite(body, open(argv[2], encoding='utf-8').read()))
+    elif len(argv) == 2 and argv[0] == 'keep':
+        json.dump(keep(open(argv[1], encoding='utf-8').read()), sys.stdout, indent=1, ensure_ascii=False)
+        print()
     else:
         sys.stderr.write(__doc__)
         return 2

@@ -40,6 +40,8 @@ was rewritten:
 - The last column is written from each commit's diff, not copied from its message.
 - The rest of the description stays as it is: the section is replaced in place, or inserted before the attribution footer.
 - It refuses to build links to commits that are not pushed yet.
+- On request, a rewrite mode replaces a bloated description with a short one built around the table: why the PR exists,
+  the table, and only the notes no row can hold. Checklists, ticket references, template headings and the footer are kept.
 
 Ask for it in plain words ("add the commit table to the PR description", "refresh the commits table after the force-push").
 It uses `gh api` over REST only, so it also works where GitHub's GraphQL API is blocked.

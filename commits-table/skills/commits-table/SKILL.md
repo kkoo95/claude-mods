@@ -1,11 +1,20 @@
 ---
 name: commits-table
-description: Add or refresh a "## Commits" table in a GitHub pull request description — one row per commit with its short SHA linked to the commit in the PR, its area, and one line written from its diff. Use it whenever the user asks for a commit table, "tableau des commits", "table des commits dans la desc", a list or summary of a PR's commits in its description, links to each commit, or after regrouping, squashing, rebasing or force-pushing a PR's history (the SHAs change, so the table must be rebuilt). Also use it when a PR description already has a Commits section that is stale or lacks links.
+description: Add or refresh a "## Commits" table in a GitHub pull request description — one row per commit with its short SHA linked to the commit in the PR, its area, and one line written from its diff. Use it whenever the user asks for a commit table, "tableau des commits", "table des commits dans la desc", a list or summary of a PR's commits in its description, links to each commit, or after regrouping, squashing, rebasing or force-pushing a PR's history (the SHAs change, so the table must be rebuilt). Also use it when a PR description already has a Commits section that is stale or lacks links. It has a rewrite mode, used when the caller asks for it, that replaces a long or bloated PR description with a short one built around the table: "replace the description with the table", "remplace la desc par le tableau", "la description est trop longue", "condense / clean up / rewrite the PR description around the commits".
 ---
 
 # commits-table
 
 A reviewer reads a PR commit by commit. The table tells them what each commit holds and takes them to it in one click, so they can review one area at a time instead of the whole diff.
+
+## Two modes
+
+The caller picks the mode, by asking for it in words or by passing `mode=rewrite`:
+
+- **table** (the default): add or refresh the `## Commits` section and leave every other line of the description as it is.
+- **rewrite**: replace the description with a short one built around the table. Use it when the description has grown into pages of generated prose that restate the diff. The table already says what each commit holds, so the rest of the description only has to carry what the table cannot. Never pick this mode on your own: it deletes text, and only the caller knows whether that text matters.
+
+Steps 1 to 5 are the same in both modes. Step 6 differs.
 
 ## Steps
 
@@ -47,7 +56,41 @@ A reviewer reads a PR commit by commit. The table tells them what each commit ho
    ```
    `splice` replaces an existing `## Commits` section up to the next `## ` heading or the attribution footer. When there is none, it inserts the section before the footer (`🤖 Generated with`, a `---` rule, a session link), or at the end. Running it again with the same section changes nothing. When the GitHub MCP is the only GitHub access, pass the new body to its `update_pull_request` tool instead of the `PATCH`.
 
+   In **rewrite** mode, go to "Rewrite the description" below instead.
+
 7. **Report** the PR link and the table in the reply, so the user sees it without opening GitHub.
+
+## Rewrite the description (rewrite mode)
+
+The aim is a description a reviewer reads in under a minute: why the PR exists, the table that guides them through the commits, and the few things they must know that are in no single commit.
+
+1. **List what must survive.** These are not Claude's prose: someone needs them, a tool reads them, or a human wrote them.
+   ```bash
+   python3 <skill-dir>/scripts/commits_table.py keep body.md
+   ```
+   The output holds the attribution `footer`, the `checklists` (`- [ ]` / `- [x]` lines, ticked state included), the `references` (`Closes #12`, `sc-123`, ticket URLs), the `headings` and the word count. Also check the repository's PR template (`.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `docs/PULL_REQUEST_TEMPLATE.md`). Keep the headings a template requires, since a CI check or a reviewer may look for them.
+
+2. **Write the new body** with this structure, in the language of the old one:
+   ```markdown
+   ## Summary
+   - Why the PR exists, in 1 to 3 bullets: the problem and the approach, not the file list.
+
+   ## Commits
+   <the table from step 5>
+
+   ## Notes
+   - Only what a reviewer needs and no row can hold: a decision that cuts across commits, a risk, a migration or deploy step, the QA status, a known follow-up.
+   ```
+   Move the details that belong to one area into that commit's row when they fit there. Drop the rest of the old prose: implementation walkthroughs, file lists, restated code, test descriptions. The diff and the table already carry all of it. Leave out `## Notes` when there is nothing for it. Put back everything from step 1 in its place: template headings, checklists with their ticked state, ticket references (in the Summary when the old body had them in prose).
+
+3. **Splice the footer back and update the PR.**
+   ```bash
+   python3 <skill-dir>/scripts/commits_table.py rewrite body.md new.md > new-body.md
+   gh api -X PATCH repos/<owner>/<repo>/pulls/<n> -F body=@new-body.md --jq .html_url
+   ```
+   `rewrite` appends the old attribution footer unless the new text already holds it.
+
+4. **Report** the old and new word counts, what was dropped in one line ("implementation walkthrough, file list"), and what was kept from step 1. Also mention that GitHub keeps the previous description in the PR's edit history ("edited" menu on the description), so nothing is lost for good.
 
 ## After a history rewrite
 
