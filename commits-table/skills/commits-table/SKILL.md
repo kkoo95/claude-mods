@@ -9,7 +9,9 @@ A reviewer reads a PR commit by commit. The table tells them what each commit ho
 
 ## Steps
 
-1. **Resolve the PR.** A number or URL from the user wins. Otherwise use the PR of the current branch: `gh api "repos/<owner>/<repo>/pulls?head=<owner>:<branch>&state=open"`.
+`<skill-dir>` below is the folder that holds this SKILL.md. Run the `git` commands inside the PR's repository clone, and write the body files to a scratch folder (`mktemp -d`), never into the clone.
+
+1. **Resolve the PR.** A number or URL from the user wins. Otherwise use the PR of the current branch: `gh api "repos/<owner>/<repo>/pulls?head=<owner>:$(git branch --show-current)&state=open"`.
 
 2. **Make sure the history is pushed.** The links point at commits on GitHub, so a commit that only exists locally gives a dead link. Compare `git rev-parse HEAD` with the PR's `head.sha` (`gh api repos/<owner>/<repo>/pulls/<n> --jq .head.sha`). If they differ, stop and say so: the table must be built after the push. Never push to make the table work, since pushing is the user's decision.
 
@@ -19,9 +21,12 @@ A reviewer reads a PR commit by commit. The table tells them what each commit ho
    ```
    Each entry has `short`, `url` (the commit inside the PR: `https://github.com/<owner>/<repo>/pull/<n>/commits/<sha>`), `area` (the part before `: ` in the subject, without a `[ticket]` prefix), `title`, `files`, `additions`, `deletions`, `empty`.
 
+   **Already current?** If the description has a `## Commits` section that lists exactly these SHAs, in this order and each one linked, tell the user it is up to date and stop. Rewriting good rows produces churn and makes nothing better. Rebuild it only when the SHAs differ, a link is missing, or the user asks for new wording.
+
 4. **Read each commit's diff** (`git show --stat <sha>`, then `git show <sha> -- <key files>`) and write its "What it holds" cell. This is the part a reviewer cannot get from the subject line, so it is written from the diff, not copied from the commit message:
    - Name what changed concretely: the components, rules, endpoints, config or files, and the behaviour they get. Example: "`inputId` on `ap-neo-timepicker`, `ap-input-chips`, with specs". Generic words such as "updates", "various fixes" or "improvements" don't help the reviewer.
-   - Keep it to one line, about 20 words at most. Don't restate the subject.
+   - Keep it to one line of about 25 words at most, and don't restate the subject. When a commit touches more than a handful of components, name the kind of change and the top areas instead of listing everything. For example: "labels of ambassador, library, publishing (25 files); host ids → `<hostId>-input`".
+   - On a large commit, start from `git show --stat` to see where the lines go, then read the diff of the 2–3 files that carry the change. Reading every file is rarely needed.
    - For an empty commit (`empty: true`), say why it exists if the message tells you (e.g. "empty: forces a rebuild"), otherwise "empty commit".
 
 5. **Build the section**, in the language of the rest of the description:
