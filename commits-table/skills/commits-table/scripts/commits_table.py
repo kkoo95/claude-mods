@@ -3,6 +3,7 @@
 
 Subcommands:
   commits <owner/repo> <pr>                  JSON list of the PR's commits, oldest first
+  section <body-file>                        print the body's current `## Commits` section, footer excluded
   splice <body-file> <section-file>          print the body with its `## Commits` section replaced or inserted
   rewrite <body-file> <new-file>             print <new-file> followed by the attribution footer of <body-file>
   keep <body-file>                           JSON of what a rewrite must carry over: footer, checklists, references
@@ -61,6 +62,16 @@ def commits(repo, pr):
             'merge': len(c.get('parents', [])) > 1,
         })
     return rows
+
+
+def current_section(body):
+    match = SECTION.search(body)
+    if not match:
+        return ''
+    nxt = HEADING.search(body, match.end())
+    foot = FOOTER.search(body, match.end())
+    ends = [m.start() for m in (nxt, foot) if m]
+    return body[match.start():min(ends) if ends else len(body)].rstrip('\n') + '\n'
 
 
 def splice(body, section):
@@ -175,6 +186,8 @@ def main(argv):
     if len(argv) == 3 and argv[0] == 'commits':
         json.dump(commits(argv[1], argv[2]), sys.stdout, indent=1, ensure_ascii=False)
         print()
+    elif len(argv) == 2 and argv[0] == 'section':
+        sys.stdout.write(current_section(open(argv[1], encoding='utf-8').read()))
     elif len(argv) == 3 and argv[0] == 'splice':
         body = open(argv[1], encoding='utf-8').read()
         section = open(argv[2], encoding='utf-8').read()
