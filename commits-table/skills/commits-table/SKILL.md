@@ -18,7 +18,7 @@ Steps 1 to 5 are the same in both modes. Step 6 differs.
 
 ## Steps
 
-`<skill-dir>` below is the folder that holds this SKILL.md. Run the `git` commands inside the PR's repository clone, and write the body files to a scratch folder (`mktemp -d`), never into the clone.
+`<skill-dir>` below is the folder that holds this SKILL.md. Run the `git` commands inside the PR's repository clone. Write every file to one scratch folder (`mktemp -d`), never into the clone, under these names: `body.md` (the current description), `section.md` (the Commits section), `new.md` (the rewritten text, rewrite mode only) and `new-body.md` (what gets sent).
 
 1. **Resolve the PR.** A number or URL from the user wins. Otherwise use the PR of the current branch: `gh api "repos/<owner>/<repo>/pulls?head=<owner>:$(git branch --show-current)&state=open"`.
 
@@ -30,11 +30,11 @@ Steps 1 to 5 are the same in both modes. Step 6 differs.
    ```
    Each entry has `short`, `url` (the commit inside the PR: `https://github.com/<owner>/<repo>/pull/<n>/commits/<sha>`), `area` (the part before `: ` in the subject, without a `[ticket]` prefix), `title`, `files`, `additions`, `deletions`, `empty`.
 
-   **Already current?** If the description has a `## Commits` section that lists exactly these SHAs, in this order and each one linked, tell the user it is up to date and stop. Rewriting good rows produces churn and makes nothing better. Rebuild it only when the SHAs differ, a link is missing, or the user asks for new wording.
+   **Already current?** If the description has a `## Commits` section that lists exactly these SHAs, in this order and each one linked, its rows are good. Rewriting them produces churn and makes nothing better. In table mode, tell the user the table is up to date and stop. In rewrite mode, reuse the rows as they are and go on to the rewrite. Rebuild the rows only when the SHAs differ, a link is missing, or the user asks for new wording.
 
 4. **Read each commit's diff** (`git show --stat <sha>`, then `git show <sha> -- <key files>`) and write its "What it holds" cell. This is the part a reviewer cannot get from the subject line, so it is written from the diff, not copied from the commit message:
    - Name what changed concretely: the components, rules, endpoints, config or files, and the behaviour they get. Example: "`inputId` on `ap-neo-timepicker`, `ap-input-chips`, with specs". Generic words such as "updates", "various fixes" or "improvements" don't help the reviewer.
-   - Keep it to one line of about 25 words at most, and don't restate the subject. When a commit touches more than a handful of components, name the kind of change and the top areas instead of listing everything. For example: "labels of ambassador, library, publishing (25 files); host ids → `<hostId>-input`".
+   - Keep it to one line of about 25 words at most, and don't restate the subject. The limit holds in rewrite mode too: a detail that doesn't fit its row goes to `## Notes`. When a commit touches more than a handful of components, name the kind of change and the top areas instead of listing everything. For example: "labels of ambassador, library, publishing (25 files); host ids → `<hostId>-input`".
    - On a large commit, start from `git show --stat` to see where the lines go, then read the diff of the 2–3 files that carry the change. Reading every file is rarely needed.
    - For an empty commit (`empty: true`), say why it exists if the message tells you (e.g. "empty: forces a rebuild"), otherwise "empty commit".
 
@@ -64,11 +64,13 @@ Steps 1 to 5 are the same in both modes. Step 6 differs.
 
 The aim is a description a reviewer reads in under a minute: why the PR exists, the table that guides them through the commits, and the few things they must know that are in no single commit.
 
+0. **Check it is worth it.** Count the words of the old body outside its table and footer (`words` from `keep` below, minus the table). If that is already under about 120 words, or the rewrite would cut less than about a third, the description is already compact: tell the caller, show the text you would drop, and rewrite only if they confirm.
+
 1. **List what must survive.** These are not Claude's prose: someone needs them, a tool reads them, or a human wrote them.
    ```bash
    python3 <skill-dir>/scripts/commits_table.py keep body.md
    ```
-   The output holds the attribution `footer`, the `checklists` (`- [ ]` / `- [x]` lines, ticked state included), the `references` (`Closes #12`, `sc-123`, ticket URLs), the `headings` and the word count. Also check the repository's PR template (`.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `docs/PULL_REQUEST_TEMPLATE.md`). Keep the headings a template requires, since a CI check or a reviewer may look for them.
+   The output holds the attribution `footer`, the `checklists` (`- [ ]` / `- [x]` lines, ticked state included), the `references` (`Closes #12`, `sc-123`, ticket URLs), the `headings` and the word count. Then look at the repository's PR templates (`.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/PULL_REQUEST_TEMPLATE/*.md`, `docs/PULL_REQUEST_TEMPLATE.md`). If the old body follows one of them, keep that template's headings and checklist, because a CI check or a reviewer may look for them. If it follows none, don't add a template now: that changes the PR's shape beyond what was asked.
 
 2. **Write the new body** with this structure, in the language of the old one:
    ```markdown
@@ -90,7 +92,7 @@ The aim is a description a reviewer reads in under a minute: why the PR exists, 
    ```
    `rewrite` appends the old attribution footer unless the new text already holds it.
 
-4. **Report** the old and new word counts, what was dropped in one line ("implementation walkthrough, file list"), and what was kept from step 1. Also mention that GitHub keeps the previous description in the PR's edit history ("edited" menu on the description), so nothing is lost for good.
+4. **Report** the old and new word counts (the `words` figure from `keep` on `body.md` and on `new-body.md`, so both exclude the footer), what was dropped in one line ("implementation walkthrough, file list"), and what was kept from step 1. Also mention that GitHub keeps the previous description in the PR's edit history ("edited" menu on the description), so nothing is lost for good.
 
 ## After a history rewrite
 
