@@ -28,7 +28,7 @@ Steps 1 to 5 are the same in both modes. Step 6 differs.
    ```bash
    python3 <skill-dir>/scripts/commits_table.py commits <owner>/<repo> <pr>
    ```
-   Each entry has `short`, `url` (the commit inside the PR: `https://github.com/<owner>/<repo>/pull/<n>/commits/<sha>`), `area` (the part before `: ` in the subject, without a `[ticket]` prefix), `title`, `files`, `additions`, `deletions`, `empty`.
+   Each entry has `short`, `url` (the commit inside the PR: `https://github.com/<owner>/<repo>/pull/<n>/commits/<sha>`), `area` (the part before `: ` in the subject, without a `[ticket]` prefix; for a conventional commit such as `refactor(i18n): …` it is the scope, `i18n`, or the type when there is no scope), `title`, `files`, `additions`, `deletions`, `empty`, `merge`.
 
    **Already current?** If the description has a `## Commits` section that lists exactly these SHAs, in this order and each one linked, its rows are good. Rewriting them produces churn and makes nothing better. In table mode, tell the user the table is up to date and stop. In rewrite mode, reuse the rows as they are and go on to the rewrite. Rebuild the rows only when the SHAs differ, a link is missing, or the user asks for new wording.
 
@@ -36,6 +36,7 @@ Steps 1 to 5 are the same in both modes. Step 6 differs.
    - Name what changed concretely: the components, rules, endpoints, config or files, and the behaviour they get. Example: "`inputId` on `ap-neo-timepicker`, `ap-input-chips`, with specs". Generic words such as "updates", "various fixes" or "improvements" don't help the reviewer.
    - Keep it to one line of about 25 words at most, and don't restate the subject. The limit holds in rewrite mode too: a detail that doesn't fit its row goes to `## Notes`. When a commit touches more than a handful of components, name the kind of change and the top areas instead of listing everything. For example: "labels of ambassador, library, publishing (25 files); host ids → `<hostId>-input`".
    - On a large commit, start from `git show --stat` to see where the lines go, then read the diff of the 2–3 files that carry the change. Reading every file is rarely needed.
+   - For a merge commit (`merge: true`), the API lists everything the merged branch brought in, which says nothing about this PR. Describe only what the merge settled for this branch (conflicts resolved, a deletion kept), from the merge's own message and `git show --remerge-diff <sha>` when it is available. Label it "Merge <branch>".
    - For an empty commit (`empty: true`), say why it exists if the message tells you (e.g. "empty: forces a rebuild"), otherwise "empty commit".
 
 5. **Build the section**, in the language of the rest of the description:
@@ -64,13 +65,13 @@ Steps 1 to 5 are the same in both modes. Step 6 differs.
 
 The aim is a description a reviewer reads in under a minute: why the PR exists, the table that guides them through the commits, and the few things they must know that are in no single commit.
 
-0. **Check it is worth it.** Count the words of the old body outside its table and footer (`words` from `keep` below, minus the table). If that is already under about 120 words, or the rewrite would cut less than about a third, the description is already compact: tell the caller, show the text you would drop, and rewrite only if they confirm.
+0. **Check it is worth it.** Count the prose of the old body (`words` from `keep` below, which leaves out the table and the footer). If that is already under about 120 words, or the rewrite would cut less than about a third, the description is already compact: tell the caller, show the text you would drop, and rewrite only if they confirm.
 
 1. **List what must survive.** These are not Claude's prose: someone needs them, a tool reads them, or a human wrote them.
    ```bash
    python3 <skill-dir>/scripts/commits_table.py keep body.md
    ```
-   The output holds the attribution `footer`, the `checklists` (`- [ ]` / `- [x]` lines, ticked state included), the `references` (`Closes #12`, `sc-123`, ticket URLs), the `headings` and the word count. Then look at the repository's PR templates (`.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/PULL_REQUEST_TEMPLATE/*.md`, `docs/PULL_REQUEST_TEMPLATE.md`). If the old body follows one of them, keep that template's headings and checklist, because a CI check or a reviewer may look for them. If it follows none, don't add a template now: that changes the PR's shape beyond what was asked.
+   The output holds the attribution `footer`, the `checklists` (`- [ ]` / `- [x]` lines, ticked state included), the `references` (`Closes #12`, `sc-123`, ticket URLs), the `headings` and `words`, the prose word count without the footer or a `## Commits` section, so the counts before and after compare like for like. Then look at the repository's PR templates (`.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/PULL_REQUEST_TEMPLATE/*.md`, `docs/PULL_REQUEST_TEMPLATE.md`). If the old body follows one of them, keep that template's headings and checklist, because a CI check or a reviewer may look for them. Put the template's first section (often Summary) first, then `## Commits`, then `## Notes`, then the template's checklist last. A template section other than the summary keeps only the cross-commit content that belongs under its heading. Leave it out if nothing does and the template doesn't require it. If it follows none, don't add a template now: that changes the PR's shape beyond what was asked.
 
 2. **Write the new body** with this structure, in the language of the old one:
    ```markdown
@@ -92,7 +93,7 @@ The aim is a description a reviewer reads in under a minute: why the PR exists, 
    ```
    `rewrite` appends the old attribution footer unless the new text already holds it.
 
-4. **Report** the old and new word counts (the `words` figure from `keep` on `body.md` and on `new-body.md`, so both exclude the footer), what was dropped in one line ("implementation walkthrough, file list"), and what was kept from step 1. Also mention that GitHub keeps the previous description in the PR's edit history ("edited" menu on the description), so nothing is lost for good.
+4. **Report** the old and new prose word counts (`words` from `keep` on `body.md` and on `new-body.md`, both without the table and the footer). Also say how many rows the table adds: with many commits, the description can get longer overall while its prose gets shorter, and the caller should know that. what was dropped in one line ("implementation walkthrough, file list"), and what was kept from step 1. Also mention that GitHub keeps the previous description in the PR's edit history ("edited" menu on the description), so nothing is lost for good.
 
 ## After a history rewrite
 
