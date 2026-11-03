@@ -1,11 +1,18 @@
 {
   "name": "jordan-mods",
-  "owner": { "name": "Jordan" },
+  "owner": {
+    "name": "Jordan"
+  },
   "plugins": [
     {
       "name": "ribbon",
       "source": "./ribbon",
       "description": "A slim band above the prompt: context fill, session cost, the prompt cache, and buttons to clear, compact or reload the loaded project."
+    },
+    {
+      "name": "commits-table",
+      "source": "./commits-table",
+      "description": "Adds or refreshes a ## Commits table in a GitHub PR description: each commit's SHA linked to it in the PR, its area, and one line written from its diff."
     }
   ]
 }

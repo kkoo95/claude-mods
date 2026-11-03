@@ -27,10 +27,28 @@ On a narrow window each part stacks into its own block. The terminal shows the s
 It reads the app's own figures and never calls a model. Cache prices come from the `MODELS` table in
 `ribbon/hooks/cache-art.ts`; edit it when prices change.
 
+## commits-table
+
+A skill that adds a `## Commits` table to a GitHub pull request description, or refreshes it after the history
+was rewritten:
+
+| # | Commit | What it holds |
+|---|---|---|
+| 1 | [`07e58f6`](https://github.com/kkoo95/claude-mods) Components | `inputId` on `ap-neo-timepicker`, `ap-input-chips`, with specs |
+
+- Each short SHA links to the commit inside the PR, so a reviewer can open them one by one.
+- The last column is written from each commit's diff, not copied from its message.
+- The rest of the description stays as it is: the section is replaced in place, or inserted before the attribution footer.
+- It refuses to build links to commits that are not pushed yet.
+
+Ask for it in plain words ("add the commit table to the PR description", "refresh the commits table after the force-push").
+It uses `gh api` over REST only, so it also works where GitHub's GraphQL API is blocked.
+
 ## Install
 
 ```
 claude plugin install ribbon@jordan-mods --marketplace kkoo95/claude-mods
+claude plugin install commits-table@jordan-mods --marketplace kkoo95/claude-mods
 ```
 
 Pick the user scope, then start a new session. To develop it, add a clone as a folder marketplace
