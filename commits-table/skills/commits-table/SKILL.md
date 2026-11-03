@@ -1,11 +1,15 @@
 ---
 name: commits-table
-description: Add or refresh a "## Commits" table in a GitHub pull request description — one row per commit with its short SHA linked to the commit in the PR, its area, and one line written from its diff. Use it whenever the user asks for a commit table, "tableau des commits", "table des commits dans la desc", a list or summary of a PR's commits in its description, links to each commit, or after regrouping, squashing, rebasing or force-pushing a PR's history (the SHAs change, so the table must be rebuilt). Also use it when a PR description already has a Commits section that is stale or lacks links. It has a rewrite mode, used when the caller asks for it, that replaces a long or bloated PR description with a short one built around the table: "replace the description with the table", "remplace la desc par le tableau", "la description est trop longue", "condense / clean up / rewrite the PR description around the commits".
+description: Add or refresh a "## Commits" table in a GitHub pull request description — one row per commit with its short SHA linked to the commit in the PR, its area, and one line written from its diff. Use it whenever the user asks for a commit table, "tableau des commits", "table des commits dans la desc", a list or summary of a PR's commits in its description, links to each commit, or after regrouping, squashing, rebasing or force-pushing a PR's history (the SHAs change, so the table must be rebuilt). Also use it when a PR description already has a Commits section that is stale or lacks links, and when the user asks to regroup, reorganise, squash or clean up a PR's commits ("regroupe les commits", "regroup commits", "one commit per area"), which usually comes right before the table. It has a rewrite mode, used when the caller asks for it, that replaces a long or bloated PR description with a short one built around the table: "replace the description with the table", "remplace la desc par le tableau", "la description est trop longue", "condense / clean up / rewrite the PR description around the commits".
 ---
 
 # commits-table
 
 A reviewer reads a PR commit by commit. The table tells them what each commit holds and takes them to it in one click, so they can review one area at a time instead of the whole diff.
+
+## Regroup first, when asked
+
+The caller often asks to regroup the commits before the table ("regroup commits + commit table in the desc"). The table describes commits, so regroup first, push, then build the table. Read `references/regroup.md` for the procedure. A script does the risky part: it backs the branch up, rebuilds one commit per group and checks the final tree is identical. Never push the rewritten history without the caller's explicit go: it needs a force-push.
 
 ## Two modes
 

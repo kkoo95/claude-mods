@@ -40,6 +40,8 @@ was rewritten:
 - The last column is written from each commit's diff, not copied from its message.
 - The rest of the description stays as it is: the section is replaced in place, or inserted before the attribution footer.
 - It refuses to build links to commits that are not pushed yet.
+- On request, it first regroups the PR's commits by area (one commit per reviewable part, backup branch, identical tree
+  checked), then builds the table once you have force-pushed.
 - On request, a rewrite mode replaces a bloated description with a short one built around the table: why the PR exists,
   the table, and only the notes no row can hold. Checklists, ticket references, template headings and the footer are kept.
 

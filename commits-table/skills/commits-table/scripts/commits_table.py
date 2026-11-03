@@ -6,6 +6,10 @@ Subcommands:
   splice <body-file> <section-file>          print the body with its `## Commits` section replaced or inserted
   rewrite <body-file> <new-file>             print <new-file> followed by the attribution footer of <body-file>
   keep <body-file>                           JSON of what a rewrite must carry over: footer, checklists, references
+  files [<base>]                             JSON of the files the branch changes since <base>, grouped by top folders
+  regroup <plan.json> [<base>]               rebuild the branch as one commit per group of the plan (no push)
+
+<base> defaults to the merge base with origin's default branch.
 
 Only REST calls through `gh api` are used, so it also works where GitHub GraphQL is blocked.
 """
@@ -109,6 +113,64 @@ def keep(body):
     }
 
 
+def git(*args, check=True):
+    return subprocess.run(['git', *args], check=check, capture_output=True, text=True).stdout.strip()
+
+
+def default_base():
+    head = git('symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD', check=False) or 'origin/master'
+    return git('merge-base', head, 'HEAD')
+
+
+def changed_files(base):
+    tracked = git('diff', '--name-only', base).splitlines()
+    untracked = git('ls-files', '--others', '--exclude-standard').splitlines()
+    return sorted(set(tracked + untracked))
+
+
+def files_by_area(base):
+    groups = {}
+    for path in changed_files(base):
+        parts = path.split('/')
+        key = '/'.join(parts[:2]) if len(parts) > 2 else parts[0]
+        groups.setdefault(key, []).append(path)
+    return {'base': base, 'areas': groups}
+
+
+def regroup(plan, base):
+    branch = git('branch', '--show-current')
+    if not branch:
+        raise SystemExit('detached HEAD: check out the branch to regroup')
+    old = git('rev-parse', 'HEAD')
+    files = changed_files(base)
+    claimed = {}
+    for index, group in enumerate(plan):
+        for path in files:
+            if any(path == p or path.startswith(p.rstrip('/') + '/') for p in group['paths']):
+                claimed.setdefault(path, index)
+    unclaimed = [f for f in files if f not in claimed]
+    if unclaimed:
+        raise SystemExit('files in no group, add them to the plan:\n  ' + '\n  '.join(unclaimed))
+    backup = f'backup/{branch}-before-regroup'
+    git('add', '-A')
+    snapshot = git('stash', 'create') or old
+    git('branch', '-f', backup, snapshot)
+    git('reset', '--soft', base)
+    git('reset', '-q')
+    made = []
+    for index, group in enumerate(plan):
+        paths = [f for f in files if claimed[f] == index]
+        if not paths:
+            continue
+        git('add', '-A', '--', *paths)
+        if not git('diff', '--cached', '--name-only'):
+            continue
+        subprocess.run(['git', 'commit', '-q', '-F', '-'], input=group['message'], text=True, check=True)
+        made.append(git('log', '-1', '--format=%h %s'))
+    same = subprocess.run(['git', 'diff', '--quiet', backup, 'HEAD']).returncode == 0
+    return {'branch': branch, 'old_head': old, 'backup': backup, 'commits': made, 'tree_identical': same}
+
+
 def main(argv):
     if len(argv) == 3 and argv[0] == 'commits':
         json.dump(commits(argv[1], argv[2]), sys.stdout, indent=1, ensure_ascii=False)
@@ -123,6 +185,15 @@ def main(argv):
     elif len(argv) == 2 and argv[0] == 'keep':
         json.dump(keep(open(argv[1], encoding='utf-8').read()), sys.stdout, indent=1, ensure_ascii=False)
         print()
+    elif argv and argv[0] == 'files' and len(argv) <= 2:
+        json.dump(files_by_area(argv[1] if len(argv) == 2 else default_base()), sys.stdout, indent=1)
+        print()
+    elif argv and argv[0] == 'regroup' and len(argv) in (2, 3):
+        plan = json.load(open(argv[1], encoding='utf-8'))
+        result = regroup(plan, argv[2] if len(argv) == 3 else default_base())
+        json.dump(result, sys.stdout, indent=1)
+        print()
+        return 0 if result['tree_identical'] else 1
     else:
         sys.stderr.write(__doc__)
         return 2
