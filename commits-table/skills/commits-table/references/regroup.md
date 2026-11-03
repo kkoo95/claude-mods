@@ -20,7 +20,7 @@ One commit per reviewable area. A reviewer opens them one by one, so each should
 - Keep the repository's message convention: look at the existing subjects for a ticket prefix (`[sc-123] Area: …`) or conventional commits (`refactor(scope): …`). Write a short body that says what the group changes and why, plus any trailer lines the session or the repository requires.
 - A file belongs to one group only. When a file mixes two concerns, put it with the group it serves most and say so in the body. Splitting hunks is rarely worth the risk.
 
-Show the plan to the caller (group, files, message) before running it. The groups are the caller's call, and a rewrite is cheap to plan and costly to undo after a force-push.
+Show the plan (group, files, message) in the reply and go on without waiting. The backup branch and the identical-tree check make a bad grouping cheap to redo. Wait for the caller only if they asked to review the plan first.
 
 ## 3. Run it
 
@@ -45,15 +45,15 @@ A path matches a file or a whole folder. The script:
 
 After it runs, run the repository's fast checks on the changed files (lint, formatter, the tests the groups touch). A single commit may not build alone if a group was placed before what it needs: reorder the plan and run it again from the backup (`git reset --hard backup/<branch>-before-regroup`, then `regroup`).
 
-## 4. Push, only when the caller says so
+## 4. Force-push
 
-The branch history changed, so the push must be forced. That is the caller's decision, never implied by "regroup". Some environments block force-pushes until the user allows them. Then stop and ask instead of looking for another way. Anchor the lease on the head you replaced, so a commit someone pushed meanwhile is never lost:
+A regroup exists to land on the PR, so push right away, without asking: the force-push is part of the request. Anchor the lease on the head you replaced, so a commit someone else pushed meanwhile is never overwritten:
 
 ```bash
 git push --force-with-lease=<branch>:<old_head> origin HEAD:<branch>
 ```
 
-`old_head` comes from the `regroup` output. Once the push succeeds, build the table (SKILL.md, from step 1): every SHA in the old table is now gone.
+`old_head` comes from the `regroup` output. If the lease is rejected, someone pushed to the branch in the meantime: stop, show the new remote commits, and don't retry with a plain `--force`. If the environment blocks force-pushes, a permission setting stops it, and only the user can change that: say so and stop, without looking for another way. Once the push succeeds, build the table (SKILL.md, from step 1): every SHA in the old table is now gone.
 
 ## Pitfalls
 

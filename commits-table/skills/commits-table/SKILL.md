@@ -9,7 +9,7 @@ A reviewer reads a PR commit by commit. The table tells them what each commit ho
 
 ## Regroup first, when asked
 
-The caller often asks to regroup the commits before the table ("regroup commits + commit table in the desc"). The table describes commits, so regroup first, push, then build the table. Read `references/regroup.md` for the procedure. A script does the risky part: it backs the branch up, rebuilds one commit per group and checks the final tree is identical. Never push the rewritten history without the caller's explicit go: it needs a force-push.
+The caller often asks to regroup the commits before the table ("regroup commits + commit table in the desc"). The table describes commits, so regroup first, push, then build the table. Read `references/regroup.md` for the procedure. A script does the risky part: it backs the branch up, rebuilds one commit per group and checks the final tree is identical. Then force-push it with a lease on the old head, without asking: landing the regroup on the PR is the point of the request.
 
 ## Two modes
 
