@@ -13,6 +13,11 @@
       "name": "commits-table",
       "source": "./commits-table",
       "description": "Adds or refreshes a ## Commits table in a GitHub PR description: each commit's SHA linked to it in the PR, its area, and one line written from its diff."
+    },
+    {
+      "name": "slang",
+      "source": "./slang",
+      "description": "A French slang register (verlan, banlieue argot, Gen Z) for conversational replies only, at levels 0 to 3; artifacts stay professional."
     }
   ]
 }

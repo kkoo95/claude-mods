@@ -48,11 +48,21 @@ was rewritten:
 Ask for it in plain words ("add the commit table to the PR description", "refresh the commits table after the force-push").
 It uses `gh api` over REST only, so it also works where GitHub's GraphQL API is blocked.
 
+## slang
+
+A skill that switches Claude's conversational replies to French slang — verlan, banlieue argot and Gen Z
+anglicisms — at a level from 0 (standard French) to 3 (heavy, the default). Pull request descriptions, commits,
+code comments and docs stay professional, and critical sentences (errors, destructive steps) stay plain.
+
+Call it with `/slang`, `/slang 2`, or "parle normal" to switch it off. The vocabulary lives in
+`slang/skills/slang/EXPRESSIONS.md`, meant to be refreshed as words date.
+
 ## Install
 
 ```
 claude plugin install ribbon@jordan-mods --marketplace kkoo95/claude-mods
 claude plugin install commits-table@jordan-mods --marketplace kkoo95/claude-mods
+claude plugin install slang@jordan-mods --marketplace kkoo95/claude-mods
 ```
 
 Pick the user scope, then start a new session. To develop it, add a clone as a folder marketplace
