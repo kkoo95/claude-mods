@@ -3,6 +3,7 @@
 
 Subcommands:
   commits <owner/repo> <pr>                  JSON list of the PR's commits, oldest first
+  regroup-check <owner/repo> <pr>            JSON {regroup, reasons}: whether the default regroup should run
   section <body-file>                        print the body's current `## Commits` section, footer excluded
   splice <body-file> <section-file>          print the body with its `## Commits` section replaced or inserted
   rewrite <body-file> <new-file>             print <new-file> followed by the attribution footer of <body-file>
@@ -58,10 +59,42 @@ def commits(repo, pr):
             'files': [f['filename'] for f in detail.get('files', [])],
             'additions': detail['stats']['additions'],
             'deletions': detail['stats']['deletions'],
+            'loc': loc(detail['stats'], len(c.get('parents', [])) > 1),
             'empty': not detail.get('files'),
             'merge': len(c.get('parents', [])) > 1,
         })
     return rows
+
+
+def loc(stats, merge):
+    # A merge's stats count everything the merged branch brought in, which is not this PR's work.
+    if merge:
+        return '—'
+    return f"+{stats['additions']} −{stats['deletions']}"
+
+
+SCRATCH_SUBJECT = re.compile(r'(?i)^(fixup!|squash!|amend!|wip\b|review\b|fix(es)? review|address(es)? review|pr feedback)')
+
+
+def regroup_check(repo, pr):
+    pull = gh_json(f'repos/{repo}/pulls/{pr}')
+    author = pull['user']['login']
+    reasons = []
+    viewer = gh_json('user')['login']
+    if viewer != author:
+        reasons.append(f'the PR belongs to {author}: a regroup would force-push their branch')
+    reviews = gh_json(f'repos/{repo}/pulls/{pr}/reviews?per_page=100')
+    reviewers = sorted({r['user']['login'] for r in reviews if r['user'] and r['user']['login'] != author and r['state'] != 'PENDING'})
+    if reviewers:
+        reasons.append('already reviewed by ' + ', '.join(reviewers) + ': a force-push breaks their "changes since last review" view')
+    rows = commits(repo, pr)
+    areas = [r['area'] for r in rows]
+    grouped = (all(areas) and len(set(areas)) == len(areas)
+               and not any(r['merge'] or SCRATCH_SUBJECT.match(r['title']) or SCRATCH_SUBJECT.match(r['subject']) for r in rows))
+    if grouped:
+        reasons.append('already one commit per area')
+    return {'regroup': not reasons, 'reasons': reasons, 'author': author, 'viewer': viewer,
+            'head': pull['head']['sha'], 'branch': pull['head']['ref']}
 
 
 def current_section(body):
@@ -185,6 +218,9 @@ def regroup(plan, base):
 def main(argv):
     if len(argv) == 3 and argv[0] == 'commits':
         json.dump(commits(argv[1], argv[2]), sys.stdout, indent=1, ensure_ascii=False)
+        print()
+    elif len(argv) == 3 and argv[0] == 'regroup-check':
+        json.dump(regroup_check(argv[1], argv[2]), sys.stdout, indent=1, ensure_ascii=False)
         print()
     elif len(argv) == 2 and argv[0] == 'section':
         sys.stdout.write(current_section(open(argv[1], encoding='utf-8').read()))

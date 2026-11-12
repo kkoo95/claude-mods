@@ -32,16 +32,18 @@ It reads the app's own figures and never calls a model. Cache prices come from t
 A skill that adds a `## Commits` table to a GitHub pull request description, or refreshes it after the history
 was rewritten:
 
-| # | Commit | What it holds |
-|---|---|---|
-| 1 | [`07e58f6`](https://github.com/kkoo95/claude-mods) Components | `inputId` on `ap-neo-timepicker`, `ap-input-chips`, with specs |
+| # | Commit | LoC | What it holds |
+|---|---|---:|---|
+| 1 | [`07e58f6`](https://github.com/kkoo95/claude-mods) Components | +120 −30 | `inputId` on `ap-neo-timepicker`, `ap-input-chips`, with specs |
 
 - Each short SHA links to the commit inside the PR, so a reviewer can open them one by one.
 - The last column is written from each commit's diff, not copied from its message.
 - The rest of the description stays as it is: the section is replaced in place, or inserted before the attribution footer.
 - It refuses to build links to commits that are not pushed yet.
-- On request, it first regroups the PR's commits by area (one commit per reviewable part, backup branch, identical tree
-  checked), force-pushes it (with a lease on the old head), then builds the table.
+- Each row shows the commit's lines of code (`+added −deleted`), so a reviewer can budget their time.
+- By default, it first regroups the PR's commits by area (one commit per reviewable part, backup branch, identical tree
+  checked), force-pushes it (with a lease on the old head), then builds the table. Say "no regroup" / "sans
+  regroupement" to skip it. It also skips on its own when the PR is someone else's, already reviewed, or already grouped.
 - On request, a rewrite mode replaces a bloated description with a short one built around the table: why the PR exists,
   the table, and only the notes no row can hold. Checklists, ticket references, template headings and the footer are kept.
 

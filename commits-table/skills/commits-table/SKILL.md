@@ -1,15 +1,25 @@
 ---
 name: commits-table
-description: Add or refresh a "## Commits" table in a GitHub pull request description — one row per commit with its short SHA linked to the commit in the PR, its area, and one line written from its diff. Use it whenever the user asks for a commit table, "tableau des commits", "table des commits dans la desc", a list or summary of a PR's commits in its description, links to each commit, or after regrouping, squashing, rebasing or force-pushing a PR's history (the SHAs change, so the table must be rebuilt). Also use it when a PR description already has a Commits section that is stale or lacks links, and when the user asks to regroup, reorganise, squash or clean up a PR's commits ("regroupe les commits", "regroup commits", "one commit per area"), which usually comes right before the table. It has a rewrite mode, used when the caller asks for it, that replaces a long or bloated PR description with a short one built around the table: "replace the description with the table", "remplace la desc par le tableau", "la description est trop longue", "condense / clean up / rewrite the PR description around the commits".
+description: Add or refresh a "## Commits" table in a GitHub pull request description — one row per commit with its short SHA linked to the commit in the PR, its area, its lines of code (+added −deleted, LoC) and one line written from its diff. By default it first regroups the PR's commits into one commit per area and force-pushes, unless the caller turns it off ("sans regroupement", "no regroup", "keep the commits as they are", regroup=off) or the PR is someone else's, already reviewed, or already grouped. Use it whenever the user asks for a commit table, "tableau des commits", "table des commits dans la desc", a list or summary of a PR's commits in its description, links to each commit, or after regrouping, squashing, rebasing or force-pushing a PR's history (the SHAs change, so the table must be rebuilt). Also use it when a PR description already has a Commits section that is stale, lacks links or lacks the LoC column, and when the user asks to regroup, reorganise, squash or clean up a PR's commits ("regroupe les commits", "regroup commits", "one commit per area"), which usually comes right before the table. It has a rewrite mode, used when the caller asks for it, that replaces a long or bloated PR description with a short one built around the table: "replace the description with the table", "remplace la desc par le tableau", "la description est trop longue", "condense / clean up / rewrite the PR description around the commits".
 ---
 
 # commits-table
 
 A reviewer reads a PR commit by commit. The table tells them what each commit holds and takes them to it in one click, so they can review one area at a time instead of the whole diff.
 
-## Regroup first, when asked
+## Regroup first, by default
 
-The caller often asks to regroup the commits before the table ("regroup commits + commit table in the desc"). The table describes commits, so regroup first, push, then build the table. Read `references/regroup.md` for the procedure. A script does the risky part: it backs the branch up, rebuilds one commit per group and checks the final tree is identical. Then force-push it with a lease on the old head, without asking: landing the regroup on the PR is the point of the request.
+The table describes commits, so the history comes first: regroup into one commit per reviewable area, force-push, then build the table from the new SHAs. This runs on every call unless one of these holds:
+
+- **The caller turns it off**: "sans regroupement", "ne regroupe pas", "garde les commits", "no regroup", "keep the commits as they are", `regroup=off`. Then go straight to the table.
+- **The safety check says no.** Run it once the PR is resolved (step 1) and before anything else:
+  ```bash
+  python3 <skill-dir>/scripts/commits_table.py regroup-check <owner>/<repo> <pr>
+  ```
+  It returns `regroup: false` with its `reasons` when the PR belongs to someone else (the force-push would rewrite their branch), when someone other than the author has already reviewed it (a force-push breaks their "changes since last review" view, so review-fix commits stay as they are), or when the history is already one commit per distinct area with no merge, fixup or WIP commit. Skip the regroup, say why in one line, and build the table. An explicit request from the caller ("regroupe quand même", "regroup anyway") overrides the first two reasons, never the third: there is nothing to regroup.
+- **The local branch is not the PR's head.** Regrouping needs the PR branch checked out at `head.sha` (from `regroup-check`). If the clone is on another branch, behind, or ahead with unpushed commits, skip the regroup, say so, and continue with step 2.
+
+When the regroup runs, read `references/regroup.md` for the procedure. A script does the risky part: it backs the branch up, rebuilds one commit per group and checks the final tree is identical. Then force-push it with a lease on the old head, without asking: the default is the request.
 
 ## Two modes
 
@@ -32,9 +42,9 @@ Steps 1 to 5 are the same in both modes. Step 6 differs.
    ```bash
    python3 <skill-dir>/scripts/commits_table.py commits <owner>/<repo> <pr>
    ```
-   Each entry has `short`, `url` (the commit inside the PR: `https://github.com/<owner>/<repo>/pull/<n>/commits/<sha>`), `area` (the part before `: ` in the subject, without a `[ticket]` prefix; for a conventional commit such as `refactor(i18n): …` it is the scope, `i18n`, or the type when there is no scope), `title`, `files`, `additions`, `deletions`, `empty`, `merge`.
+   Each entry has `short`, `url` (the commit inside the PR: `https://github.com/<owner>/<repo>/pull/<n>/commits/<sha>`), `area` (the part before `: ` in the subject, without a `[ticket]` prefix; for a conventional commit such as `refactor(i18n): …` it is the scope, `i18n`, or the type when there is no scope), `title`, `files`, `additions`, `deletions`, `loc` (the LoC cell, ready to paste: `+120 −30`, or `—` for a merge commit, whose stats count the whole merged branch), `empty`, `merge`.
 
-   **Already current?** If the description has a `## Commits` section that lists exactly these SHAs, in this order and each one linked, its rows are good. Rewriting them produces churn and makes nothing better. In table mode, tell the user the table is up to date and stop. In rewrite mode, reuse the rows as they are and go on to the rewrite. Rebuild the rows only when the SHAs differ, a link is missing, or the user asks for new wording.
+   **Already current?** If the description has a `## Commits` section that lists exactly these SHAs, in this order, each one linked and with an `LoC` column, its rows are good. Rewriting them produces churn and makes nothing better. In table mode, tell the user the table is up to date and stop. In rewrite mode, reuse the rows as they are and go on to the rewrite. Rebuild the rows only when the SHAs differ, a link or the `LoC` column is missing, or the user asks for new wording. A table that only lacks `LoC` keeps its "What it holds" cells: add the column from `loc`, don't rewrite them.
 
 4. **Read each commit's diff** (`git show --stat <sha>`, then `git show <sha> -- <key files>`) and write its "What it holds" cell. This is the part a reviewer cannot get from the subject line, so it is written from the diff, not copied from the commit message:
    - Name what changed concretely: the components, rules, endpoints, config or files, and the behaviour they get. Example: "`inputId` on `ap-neo-timepicker`, `ap-input-chips`, with specs". Generic words such as "updates", "various fixes" or "improvements" don't help the reviewer.
@@ -47,11 +57,11 @@ Steps 1 to 5 are the same in both modes. Step 6 differs.
    ```markdown
    ## Commits
 
-   | # | Commit | What it holds |
-   |---|---|---|
-   | 1 | [`07e58f6`](https://github.com/<owner>/<repo>/pull/<n>/commits/<full-sha>) Components | `inputId` on `ap-neo-timepicker`, `ap-input-chips`, with specs |
+   | # | Commit | LoC | What it holds |
+   |---|---|---:|---|
+   | 1 | [`07e58f6`](https://github.com/<owner>/<repo>/pull/<n>/commits/<full-sha>) Components | +120 −30 | `inputId` on `ap-neo-timepicker`, `ap-input-chips`, with specs |
    ```
-   Every SHA is a link. A bare SHA is the first thing reviewers complain about. The label after the link is the commit's `area`. When there is none, use a 2–4 word summary of the title.
+   Every SHA is a link. A bare SHA is the first thing reviewers complain about. The label after the link is the commit's `area`. When there is none, use a 2–4 word summary of the title. The `LoC` cell is the entry's `loc`, copied as is. When most of a commit's lines are generated or lock files (`package-lock.json`, `.betterer.results`, snapshots), say so in its "What it holds" cell ("+2 400 of them in `package-lock.json`"), so the reviewer doesn't budget an hour for a lockfile. Don't add a total row: the PR header already shows it.
 
 6. **Splice it into the description without touching anything else.** The description often holds a template, a checklist or attribution lines that belong to someone else.
    ```bash
@@ -111,7 +121,7 @@ python3 <skill-dir>/scripts/commits_table.py splice body.md section.md > new-bod
 
 ## After a history rewrite
 
-Regrouping, squashing, rebasing or amending changes every SHA after the first rewritten commit, and the old links then point at commits that are no longer in the PR. Rebuild the whole table from step 3 after the force-push. Don't patch individual rows.
+Regrouping (the default, see above), squashing, rebasing or amending changes every SHA after the first rewritten commit, and the old links then point at commits that are no longer in the PR. Rebuild the whole table from step 3 after the force-push. Don't patch individual rows.
 
 ## Notes
 

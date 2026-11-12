@@ -1,6 +1,6 @@
 # Regroup a PR's commits
 
-Read this when the caller asks to regroup, reorganise, squash or clean up a PR's commits, usually just before asking for the table. The table describes commits, so the history comes first: regroup, push, then build the table from the new SHAs.
+Read this when the regroup runs: by default before every table, unless the caller turned it off or `regroup-check` said no (SKILL.md, "Regroup first, by default"). The table describes commits, so the history comes first: regroup, push, then build the table from the new SHAs.
 
 ## 1. See what the branch changes
 

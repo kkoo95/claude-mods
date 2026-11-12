@@ -1,7 +1,7 @@
 {
   "name": "commits-table",
-  "version": "0.1.0",
-  "description": "Adds or refreshes a ## Commits table in a GitHub PR description: each commit's SHA linked to it in the PR, its area, and one line written from its diff.",
+  "version": "0.2.0",
+  "description": "Adds or refreshes a ## Commits table in a GitHub PR description: each commit's SHA linked to it in the PR, its area, its LoC, and one line written from its diff. Regroups the commits by area first, by default.",
   "author": {
     "name": "Jordan",
     "url": "https://github.com/kkoo95"
